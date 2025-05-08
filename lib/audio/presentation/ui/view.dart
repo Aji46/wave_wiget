@@ -284,21 +284,47 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
     fetchAudioFiles();
   }
 
-  Future<void> fetchAudioFiles() async {
-    setState(() => loadingAudio = true);
-    try {
-      // Simulate fetching the AudioEntity list (replace with your actual fetch logic)
-      final files = await getAudioFilesBySubFolder();
-      setState(() {
-        // Flatten the list of AudioEntity objects and extract the AudioFile objects
-        audioFiles = files.expand((entity) => entity.files).toList();
-        loadingAudio = false;
-      });
-    } catch (e) {
-      setState(() => loadingAudio = false);
-      debugPrint("Error fetching audio files: $e");
+Future<void> fetchAudioFiles() async {
+  setState(() => loadingAudio = true);
+  try {
+    final files = await getAudioFilesBySubFolder(); // Assume this returns List<AudioEntity>
+
+    // Flatten all audio files
+    final allFiles = files.expand((entity) => entity.files).toList();
+
+    // Group files by convertedAt date (yyyy-MM-dd)
+    final Map<String, List<AudioFile>> groupedByDate = {};
+
+    for (var file in allFiles) {
+      final dateKey = file.convertedAt.toIso8601String().substring(0, 10); // e.g., "2024-08-25"
+      if (!groupedByDate.containsKey(dateKey)) {
+        groupedByDate[dateKey] = [];
+      }
+      groupedByDate[dateKey]!.add(file);
     }
+
+    // Create subfolders from the grouped map
+    final newSubFolders = groupedByDate.entries.map((entry) {
+      return AudioEntity(
+        name: entry.key, // Use date string as folder name
+        path: '',        // You can set a path if needed
+        type: 'folder',
+        children: [],
+        subFolders: [],
+        files: entry.value,
+      );
+    }).toList();
+
+    setState(() {
+      subFolders = newSubFolders;
+      loadingAudio = false;
+    });
+  } catch (e) {
+    setState(() => loadingAudio = false);
+    debugPrint("Error fetching audio files: $e");
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -346,9 +372,13 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
                 ),
                 const SizedBox(height: 15),
                 if (expandedFolder == "Audio")
-                  ...subFolders.map(
-                    (subFolder) => GestureDetector(
-                      onTap: fetchAudioFiles,
+                ...subFolders.map(
+  (subFolder) => GestureDetector(
+    onTap: () {
+      setState(() {
+        audioFiles = subFolder.files;
+      });
+    },
                       child: Padding(
                         padding: const EdgeInsets.only(left: 30.0, bottom: 10),
                         child: Row(

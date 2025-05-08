@@ -30,6 +30,7 @@ class AudioEntity {
   final String name;
   final String path;
   final String type;
+   final List<dynamic> children;
   final List<AudioEntity> subFolders;
   final List<AudioFile> files;
 
@@ -37,6 +38,7 @@ class AudioEntity {
     required this.name,
     required this.path,
     required this.type,
+     required this.children,
     required this.subFolders,
     required this.files,
   });
@@ -46,6 +48,7 @@ class AudioEntity {
       name: json['name'],
       path: json['path'],
       type: json['type'],
+      children: json['children'] ?? [],
       subFolders: (json['subFolders'] as List<dynamic>?)
               ?.map((e) => AudioEntity.fromJson(e))
               .toList() ??
@@ -61,28 +64,34 @@ class AudioEntity {
 class AudioFile {
   final String guid;
   final String fileName;
-  final String transcription;
-  final String folderPath;
   final DateTime receivedAt;
   final DateTime convertedAt;
+  final String transcription;
+  final String folderPath;
+  final String? type;
+  final String? status;
 
   AudioFile({
-    required this.guid,
+  required this.guid,
     required this.fileName,
-    required this.transcription,
-    required this.folderPath,
     required this.receivedAt,
     required this.convertedAt,
+    required this.transcription,
+    required this.folderPath,
+    this.type,
+    this.status,
   });
 
   factory AudioFile.fromJson(Map<String, dynamic> json) {
     return AudioFile(
-      guid: json['guid'],
+     guid: json['guid'],
       fileName: json['fileName'],
-      transcription: json['transcription'],
-      folderPath: json['folderPath'],
       receivedAt: DateTime.parse(json['receivedAt']),
       convertedAt: DateTime.parse(json['convertedAt']),
+      transcription: json['transcription'],
+      folderPath: json['folderPath'],
+      type: json['type'],
+      status: json['status'],
     );
   }
 }

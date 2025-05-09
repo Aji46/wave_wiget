@@ -5,8 +5,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:test_widget/audio/data/entity/tanscriptionSegment.dart';
-import 'package:test_widget/audio/presentation/ui/apicalss.dart';
+import 'package:test_widget/audio/controller/services.dart';
+import 'package:test_widget/audio/model/api/tanscriptionSegment.dart';
 
 import 'painter.dart';
 

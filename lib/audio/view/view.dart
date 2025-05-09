@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:test_widget/audio/data/entity/audio_entity.dart';
-import 'package:test_widget/audio/presentation/ui/apicalss.dart';
-import 'package:test_widget/audio/presentation/ui/audio_info.dart';
+import 'package:test_widget/audio/controller/services.dart';
+import 'package:test_widget/audio/model/api/audio_entity.dart';
+import 'package:test_widget/audio/view/audio_info.dart';
 
 class FileExploreScreen extends StatefulWidget {
   const FileExploreScreen({super.key});

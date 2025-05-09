@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:test_widget/audio/data/entity/tanscriptionSegment.dart';
+import 'package:test_widget/audio/model/api/tanscriptionSegment.dart';
 
 class WaveformPainter extends CustomPainter {
   final List<double> waveformData;

@@ -3,9 +3,9 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:test_widget/audio/data/entity/audio_entity.dart';
-import 'package:test_widget/audio/presentation/ui/apicalss.dart';
-import 'package:test_widget/audio/presentation/ui/widgets/network_wave_form.dart';
+import 'package:test_widget/audio/controller/services.dart';
+import 'package:test_widget/audio/model/api/audio_entity.dart';
+import 'package:test_widget/audio/view/widgets/network_wave_form.dart';
 
 class AudioInfo extends StatefulWidget {
   final AudioFile audioFile;

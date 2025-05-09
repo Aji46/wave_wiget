@@ -6,8 +6,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'package:test_widget/audio/data/entity/audio_entity.dart';
-import 'package:test_widget/audio/data/entity/tanscriptionSegment.dart';
+import 'package:test_widget/audio/model/api/audio_entity.dart';
+import 'package:test_widget/audio/model/api/tanscriptionSegment.dart';
 
 
 Future<List<AudioEntity>> getAudioFilesBySubFolder() async {

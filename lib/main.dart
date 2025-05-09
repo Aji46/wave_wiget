@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:test_widget/audio/presentation/ui/view.dart';
+import 'package:test_widget/audio/view/view.dart';
 
 void main() {
   runApp(const MyApp());

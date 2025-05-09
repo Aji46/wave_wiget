@@ -1,39 +1,46 @@
 
 
   import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:test_widget/audio/data/entity/audio_entity.dart';
 import 'package:test_widget/audio/data/entity/tanscriptionSegment.dart';
-import 'package:test_widget/core/network/service/api_service.dart';
-
-  late final IApiService _apiService;
 
 
-  Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
+Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
+    print("+++++++++++__________");
   try {
-  final response = await http.get(Uri.parse('http://localhost:5259/api/FileExplorer/completed-files'));
-
+      print("+++++++++++====================");
+    final response = await http.get(Uri.parse('http://localhost:58508/api/FileExplorer/completed-files'));
+   print("++++++++++++++++++++++++++++++");
+   print(response.statusCode);
     if (response.statusCode == 200) {
-
-      
       final List<dynamic> data = json.decode(response.body);
+      // Transform the response into a list of AudioEntity objects
+      print(response.body);
       return data.map((e) => AudioEntity.fromJson(e)).toList();
     } else {
       throw Exception('Failed to load audio files. Status code: ${response.statusCode}');
     }
   } catch (e) {
-  if (e is http.ClientException) {
-    print("Caught a ClientException: ${e.message}");
-  } 
-    print('Error fetching audio files: $e');
-    return []; // return an empty list or rethrow the exception depending on your use case
+    if (e is http.ClientException) {
+      print("Caught a ClientException: ${e.message}");
+    } else if (e is FormatException) {
+      print("Caught a FormatException: Invalid response format.");
+    } else {
+      print("Error fetching audio files: $e");
+    }
+    return [];
   }
 }
 
 
+
 Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
-  final uri = Uri.parse("http://localhost:5259/api/FileExplorer/transcription/$guid");
+  final uri = Uri.parse("http://localhost:58508/api/FileExplorer/GetByProcessedGuid/$guid");
   final response = await http.get(uri);
 
   if (response.statusCode == 200) {
@@ -44,6 +51,72 @@ Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
     return null;
   }
 }
+
+
+class AudioDownloader {
+  Future<String?> downloadAudio(String guid, String fileName) async {
+  final url = Uri.parse('http://localhost:58508/api/FileExplorer/DownloadAudio/$guid');
+  try {
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final bytes = response.bodyBytes;
+
+      final directory = await getApplicationDocumentsDirectory();
+      final audioDir = Directory('${directory.path}/assets/audio');
+      if (!(await audioDir.exists())) {
+        await audioDir.create(recursive: true);
+      }
+
+      final filePath = '${audioDir.path}/$fileName';
+
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+
+      debugPrint('Audio downloaded to: $filePath');
+      return filePath;
+    } else {
+      debugPrint('Failed to download audio. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    debugPrint('Error downloading audio: $e');
+  }
+
+  return null;
+}
+
+}
+
+
+Future<void> downloadAndAssignPath(AudioFile originalFile) async {
+  final downloader = AudioDownloader();
+  final downloadedPath = await downloader.downloadAudio(originalFile.guid, originalFile.fileName);
+
+  if (downloadedPath != null) {
+    final updatedFile = originalFile.copyWith(folderPath: downloadedPath);
+
+    debugPrint('Updated file path: ${updatedFile.folderPath}');
+  }
+}
+
+
+Future<List<AudioFile>> downloadAndUpdateFilePaths(List<AudioFile> files) async {
+  final downloader = AudioDownloader();
+  List<AudioFile> updatedFiles = [];
+
+  for (final file in files) {
+    final path = await downloader.downloadAudio(file.guid, file.fileName);
+    if (path != null) {
+      updatedFiles.add(file.copyWith(folderPath: path));
+    } else {
+      updatedFiles.add(file); 
+    }
+  }
+
+  return updatedFiles;
+}
+
+
 
 
 
@@ -68,22 +141,20 @@ Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
 //           receivedAt: DateTime.now().subtract(const Duration(days: 1)),
 //           convertedAt: DateTime.now(),
 //         ),
-//       ], children: [],
+//       ],
+//       children: [],
 //     ),
 //     AudioEntity(
 //       name: "Lectures",
 //       path: "/audio/lectures",
 //       type: "folder",
-//       subFolders: [],
-//       files: [], children: [],
-//     ),
-//     AudioEntity(
-//       name: "Subfolder Audios",
-//       path: "/audio/subfolder",
-//       type: "folder",
-//       subFolders: [],
-//       files: [
-//         AudioFile(
+//       subFolders: [
+//         AudioFolder(
+//           name: "Physics Lectures",
+//           path: "/audio/lectures/physics",
+//           type: "folder",
+//           files: [
+//           AudioFile(
 //           guid: "003",
 //           fileName: "subfolder_audio_01.mp3",
 //           transcription:
@@ -92,7 +163,14 @@ Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
 //           receivedAt: DateTime.now().subtract(const Duration(days: 1)),
 //           convertedAt: DateTime.now(),
 //         ),
-//         AudioFile(
+//           ],
+//         ),
+//         AudioFolder(
+//           name: "Chemistry Lectures",
+//           path: "/audio/lectures/chemistry",
+//           type: "folder",
+//           files: [
+//               AudioFile(
 //           guid: "004",
 //           fileName: "subfolder_audio_02.mp3",
 //           transcription:
@@ -101,7 +179,7 @@ Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
 //           receivedAt: DateTime.now().subtract(const Duration(days: 3)),
 //           convertedAt: DateTime.now().subtract(const Duration(days: 1)),
 //         ),
-//         AudioFile(
+//              AudioFile(
 //           guid: "005",
 //           fileName: "subfolder_audio_05.mp3",
 //           transcription: "Second audio transcription.",
@@ -109,10 +187,18 @@ Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
 //           receivedAt: DateTime.now().subtract(const Duration(days: 3)),
 //           convertedAt: DateTime.now().subtract(const Duration(days: 1)),
 //         ),
-//       ], children: [],
+//           ],
+//         ),
+//       ],
+//       files: [],
+//       children: [],
 //     ),
 //   ];
 // }
+
+
+
+
 
 
 
@@ -200,3 +286,5 @@ Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
 //     ],
 //   );
 // }
+
+

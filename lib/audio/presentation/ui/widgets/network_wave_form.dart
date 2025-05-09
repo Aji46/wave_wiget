@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:test_widget/audio/data/entity/tanscriptionSegment.dart';
 import 'package:test_widget/audio/presentation/ui/apicalss.dart';
 
-import 'widgets/painter.dart';
+import 'painter.dart';
 
 class WavedAudioPlayer extends StatefulWidget {
   Source source;

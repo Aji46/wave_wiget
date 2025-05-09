@@ -4,14 +4,14 @@ import 'package:test_widget/audio/data/entity/tanscriptionSegment.dart';
 
 class WaveformPainter extends CustomPainter {
   final List<double> waveformData;
-  final double progress; // Value from 0 to 1
+  final double progress; 
   final Color playedColor;
   final Color unplayedColor;
   final double barWidth;
   final double waveWidth;
   final List<TranscriptionSegment> transcriptionSegments;
   final Duration audioDuration;
-  final TranscriptionSegment? selectedSegment; // New: track the selected segment
+  final TranscriptionSegment? selectedSegment; 
 
   WaveformPainter({
     required this.waveformData,
@@ -22,7 +22,7 @@ class WaveformPainter extends CustomPainter {
     required this.waveWidth,
     required this.transcriptionSegments,
     required this.audioDuration,
-    this.selectedSegment, // New: optional parameter for the selected segment
+    this.selectedSegment, 
   });
 
   @override

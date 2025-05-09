@@ -27,14 +27,27 @@ class AudioCubit extends Cubit<AudioCubitState> {
     }
   }
 
-  void toggleMainFolder(String? folderName) {
-    final isExpanded = state.expandedFolder == folderName;
+void toggleMainFolder(String? folderName) {
+  final isExpanded = state.expandedFolder == folderName;
+
+  if (isExpanded) {
     emit(state.copyWith(
-      expandedFolder: isExpanded ? null : folderName,
+      expandedFolder: null,
       audioFiles: [],
       selectedSubFolder: null,
     ));
+  } else {
+    final selectedEntity = state.audioEntityName == folderName
+        ? state.audioFolders.firstWhere((e) => e.name == folderName, orElse: () => AudioFolder(name: '', path: '', type: '', files: []))
+        : null;
+    emit(state.copyWith(
+      expandedFolder: folderName,
+      audioFiles: selectedEntity?.files ?? [],
+      selectedSubFolder: null,
+    ));
   }
+}
+
 
   void selectSubFolder(AudioFolder folder) {
     emit(state.copyWith(
@@ -42,4 +55,6 @@ class AudioCubit extends Cubit<AudioCubitState> {
       audioFiles: folder.files,
     ));
   }
+
+  
 }

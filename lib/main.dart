@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:test_widget/audio/controller/cubit/audio_cubit.dart';
 import 'package:test_widget/audio/view/home_page.dart';
 
 void main() {
@@ -16,7 +18,10 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const FileExploreScreen(),
+      home: BlocProvider(
+        create: (_) => AudioCubit()..fetchAudioFolders(), // Initialize cubit and fetch data
+        child: const FileExploreScreen(), // Your home screen
+      ),
     );
   }
 }

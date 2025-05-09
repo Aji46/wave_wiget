@@ -13,6 +13,7 @@ import 'package:test_widget/audio/model/api/tanscriptionSegment.dart';
 Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
   try {
     final response = await http.get(Uri.parse('http://localhost:58508/api/FileExplorer/completed-files'));
+    // print(response.body);
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       return data.map((e) => AudioEntity.fromJson(e)).toList();
@@ -29,10 +30,11 @@ Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
 }
 
 
-
-Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
+Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(int guid) async {
   final uri = Uri.parse("http://localhost:58508/api/FileExplorer/GetByProcessedGuid/$guid");
   final response = await http.get(uri);
+print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+  print(response.body);
 
   if (response.statusCode == 200) {
     final data = json.decode(response.body);
@@ -44,11 +46,11 @@ Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
 
 
 class AudioDownloader {
-  Future<String?> downloadAudio(String guid, String fileName) async {
+  Future<String?> downloadAudio(int guid, String fileName) async {
   final url = Uri.parse('http://localhost:58508/api/FileExplorer/DownloadAudio/$guid');
   try {
     final response = await http.get(url);
-
+      
     if (response.statusCode == 200) {
       final bytes = response.bodyBytes;
 
@@ -71,16 +73,62 @@ class AudioDownloader {
   } catch (e) {
     debugPrint('Error downloading audio: $e');
   }
-
   return null;
 }
-
 }
+
+
+
+
+// class AudioDownloader {
+// Future<String?> downloadAudio(int guid, String fileName) async {
+//   final url = Uri.parse('http://localhost:58508/api/FileExplorer/DownloadAudio/$guid');
+//   try {
+//     final response = await http.get(url);
+
+//     if (response.statusCode == 200) {
+//       final bytes = response.bodyBytes;
+
+//       if (kIsWeb) {
+//         // Web download logic using dart:html
+//         final blob = html.Blob([bytes]);
+//         final url = html.Url.createObjectUrlFromBlob(blob);
+//         final anchor = html.AnchorElement(href: url)
+//           ..setAttribute("download", fileName)
+//           ..click();
+//         html.Url.revokeObjectUrl(url);
+//         return fileName;
+//       } else {
+//         // Mobile/Desktop logic
+//         final directory = await getApplicationDocumentsDirectory();
+//         final audioDir = Directory('${directory.path}/assets/audio');
+//         if (!(await audioDir.exists())) {
+//           await audioDir.create(recursive: true);
+//         }
+
+//         final filePath = '${audioDir.path}/$fileName';
+
+//         final file = File(filePath);
+//         await file.writeAsBytes(bytes);
+
+//         debugPrint('Audio downloaded to: $filePath');
+//         return filePath;
+//       }
+//     } else {
+//       debugPrint('Failed to download audio. Status code: ${response.statusCode}');
+//     }
+//   } catch (e) {
+//     debugPrint('Error downloading audio: $e');
+//   }
+//   return null;
+// }
+
+// }
 
 
 Future<void> downloadAndAssignPath(AudioFile originalFile) async {
   final downloader = AudioDownloader();
-  final downloadedPath = await downloader.downloadAudio(originalFile.guid, originalFile.fileName);
+  final downloadedPath = await downloader.downloadAudio(originalFile.guid , originalFile.fileName);
 
   if (downloadedPath != null) {
     final updatedFile = originalFile.copyWith(folderPath: downloadedPath);

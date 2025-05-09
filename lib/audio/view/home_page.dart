@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:test_widget/audio/controller/cubit/audio_cubit.dart';
 import 'package:test_widget/audio/controller/cubit/audio_cubit_state.dart';
+import 'package:test_widget/audio/controller/services.dart';
 import 'package:test_widget/audio/view/audio_info.dart';
 
 class FileExploreScreen extends StatefulWidget {
@@ -20,8 +21,10 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
 
   @override
   void initState() {
+    
     super.initState();
     _audioCubit = AudioCubit()..fetchAudioFolders();
+    getAudioFilesBySubFolder();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
       _audioCubit.fetchAudioFolders();
     });
@@ -80,7 +83,7 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
                         ),
                       ),
                       const SizedBox(height: 15),
-                      if (state.expandedFolder == state.audioEntityName)
+                if (state.expandedFolder == state.audioEntityName)
                         ...state.audioFolders.map(
                           (subFolder) => GestureDetector(
                             onTap: () => cubit.selectSubFolder(subFolder),

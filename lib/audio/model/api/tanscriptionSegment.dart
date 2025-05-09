@@ -27,7 +27,7 @@ class TranscriptionSegment {
 }
 
 class AudioTranscription {
-  final String guid;
+  final int guid;
   final String fileName;
   final DateTime receivedAt;
   final DateTime convertedAt;
@@ -51,7 +51,7 @@ class AudioTranscription {
 
   factory AudioTranscription.fromJson(Map<String, dynamic> json) {
     return AudioTranscription(
-      guid: json['guid'],
+      guid: json['id'],
       fileName: json['fileName'],
       receivedAt: DateTime.parse(json['receivedAt']),
       convertedAt: DateTime.parse(json['convertedAt']),

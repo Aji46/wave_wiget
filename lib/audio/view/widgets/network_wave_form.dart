@@ -1,4 +1,5 @@
 
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -25,7 +26,7 @@ class WavedAudioPlayer extends StatefulWidget {
   final TextStyle? timingStyle;
   final void Function(WavedAudioPlayerError)? onError;
   final Function(String)? onTranscriptionReceived;
-  final String guid;
+  final int guid;
 
   const WavedAudioPlayer({
     super.key,
@@ -315,6 +316,8 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
   Future<void> _fetchTranscription() async {
     try {
       final transcription = await getAudioTranscriptionByGuidDemo(widget.guid);
+
+      print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++${widget.guid}");
       if (transcription != null && mounted) {
         setState(() {
           transcriptionSegments = transcription.srtSegments;
@@ -536,4 +539,3 @@ class WavedAudioPlayerError {
   final String message;
   const WavedAudioPlayerError(this.message);
 }
-

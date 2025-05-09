@@ -1,10 +1,13 @@
 
+
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:test_widget/audio/controller/services.dart';
 import 'package:test_widget/audio/model/api/audio_entity.dart';
+import 'package:test_widget/audio/model/api/tanscriptionSegment.dart';
 import 'package:test_widget/audio/view/widgets/network_wave_form.dart';
 
 class AudioInfo extends StatefulWidget {
@@ -23,50 +26,92 @@ class _AudioInfoState extends State<AudioInfo> {
   String? _clickedSentence;
   String? _localAudioPath;
   bool _isDownloading = true;
+  bool _isAudioLoaded = false;
+  bool _isAudioPlayerReady = false;
 
   @override
   void initState() {
     super.initState();
     _fullTranscription = widget.audioFile.transcription;
-    _downloadAudio();
+    // Slightly delay download to ensure widget is fully mounted
+    Future.microtask(() {
+      _downloadAudio();
+    });
   }
 
   Future<void> _downloadAudio() async {
+    if (!mounted) return;
+    
     setState(() {
       _isDownloading = true;
+      _isAudioLoaded = false;
+      _localAudioPath = null;
+      _isAudioPlayerReady = false;
     });
 
-    final downloader = AudioDownloader();
-    final path =
-        await downloader.downloadAudio(widget.audioFile.guid, "downloaded_audio.mp3");
+    try {
+      final downloader = AudioDownloader();
+      final path = await downloader.downloadAudio(
+        widget.audioFile.guid, 
+        "downloaded_audio.mp3"
+      );
 
-    if (path != null) {
-      setState(() {
-        _localAudioPath = path;
-        _isDownloading = false;
-      });
-    } else {
-      setState(() {
-        _isDownloading = false;
-      });
-      debugPrint("Failed to download audio file.");
+      if (!mounted) return;
+
+      if (path != null) {
+        setState(() {
+          _localAudioPath = path;
+          _isDownloading = false;
+          _isAudioLoaded = true;
+        });
+        
+        // Allow a short delay for the audio player to initialize
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            setState(() {
+              _isAudioPlayerReady = true;
+            });
+          }
+        });
+      } else {
+        setState(() {
+          _isDownloading = false;
+          _isAudioLoaded = false;
+        });
+        debugPrint("Failed to download audio file.");
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isDownloading = false;
+          _isAudioLoaded = false;
+        });
+      }
+      debugPrint("Error downloading audio: $e");
     }
   }
 
   Duration _parseDuration(String timeStr) {
-    List<String> parts = timeStr.split(':');
-    int hours = int.parse(parts[0]);
-    int minutes = int.parse(parts[1]);
-    double seconds = double.parse(parts[2]);
-    return Duration(
-      hours: hours,
-      minutes: minutes,
-      seconds: seconds.toInt(),
-      milliseconds: (seconds * 1000).toInt() % 1000,
-    );
+    try {
+      List<String> parts = timeStr.split(':');
+      int hours = int.parse(parts[0]);
+      int minutes = int.parse(parts[1]);
+      double seconds = double.parse(parts[2]);
+      return Duration(
+        hours: hours,
+        minutes: minutes,
+        seconds: seconds.toInt(),
+        milliseconds: (seconds * 1000).toInt() % 1000,
+      );
+    } catch (e) {
+      debugPrint("Error parsing duration: $e");
+      return Duration.zero;
+    }
   }
 
   void _updateTranscription(String highlightedTranscription) {
+    if (!mounted) return;
+    
     final regex = RegExp(r'\*\*(.+?)\*\*');
     final match = regex.firstMatch(highlightedTranscription);
 
@@ -78,9 +123,32 @@ class _AudioInfoState extends State<AudioInfo> {
 
   Future<void> _copyToClipboard() async {
     await Clipboard.setData(ClipboardData(text: _fullTranscription));
+    if (!mounted) return;
+    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Transcription copied to clipboard')),
     );
+  }
+  
+  void _handleSegmentTap(TranscriptionSegment segment) {
+    if (!_isAudioPlayerReady || _waveformKey.currentState == null) return;
+    
+    try {
+      final startTime = _parseDuration(segment.startTime);
+      final totalDuration = _waveformKey.currentState?.duration ?? Duration.zero;
+
+      if (totalDuration != Duration.zero) {
+        final position = (startTime.inMilliseconds / totalDuration.inMilliseconds) * 100;
+        _waveformKey.currentState?.seekToPosition(position);
+        _waveformKey.currentState?.setSelectedSegment(segment);
+      }
+
+      setState(() {
+        _clickedSentence = segment.transcriptText;
+      });
+    } catch (e) {
+      debugPrint("Error handling segment tap: $e");
+    }
   }
 
   @override
@@ -122,8 +190,17 @@ class _AudioInfoState extends State<AudioInfo> {
 
   Widget _buildAudioPlayer() {
     if (_isDownloading) {
-      return const CircularProgressIndicator();
-    } else if (_localAudioPath != null) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 10),
+            Text("Downloading audio file...")
+          ],
+        ),
+      );
+    } else if (_isAudioLoaded && _localAudioPath != null) {
       return WavedAudioPlayer(
         key: _waveformKey,
         source: DeviceFileSource(_localAudioPath!),
@@ -140,7 +217,16 @@ class _AudioInfoState extends State<AudioInfo> {
         onTranscriptionReceived: _updateTranscription,
       );
     } else {
-      return const Text("Failed to load audio.");
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 40, color: Colors.red),
+            SizedBox(height: 10),
+            Text("Failed to load audio. Please try again.")
+          ],
+        ),
+      );
     }
   }
 
@@ -154,12 +240,19 @@ class _AudioInfoState extends State<AudioInfo> {
     );
 
     final segments = _waveformKey.currentState?.segments ?? [];
+    if (segments.isEmpty) {
+      // If no segments are available, just return the plain text
+      return Text(_fullTranscription, style: commonStyle);
+    }
+    
     String text = _fullTranscription;
     final textSpans = <TextSpan>[];
     int currentIndex = 0;
 
     for (var segment in segments) {
       final phrase = segment.transcriptText.trim();
+      if (phrase.isEmpty) continue;
+      
       final matchIndex = text.indexOf(phrase, currentIndex);
 
       if (matchIndex != -1) {
@@ -183,20 +276,7 @@ class _AudioInfoState extends State<AudioInfo> {
           text: phrase,
           style: commonStyle.copyWith(backgroundColor: backgroundColor),
           recognizer: TapGestureRecognizer()
-            ..onTap = () {
-              final startTime = _parseDuration(segment.startTime);
-              final totalDuration = _waveformKey.currentState?.duration ?? Duration.zero;
-
-              if (totalDuration != Duration.zero) {
-                final position = (startTime.inMilliseconds / totalDuration.inMilliseconds) * 100;
-                _waveformKey.currentState?.seekToPosition(position);
-                _waveformKey.currentState?.setSelectedSegment(segment);
-              }
-
-              setState(() {
-                _clickedSentence = phrase;
-              });
-            },
+            ..onTap = () => _handleSegmentTap(segment),
         ));
 
         currentIndex = matchIndex + phrase.length;

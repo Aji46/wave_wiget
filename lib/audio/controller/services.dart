@@ -11,27 +11,18 @@ import 'package:test_widget/audio/model/api/tanscriptionSegment.dart';
 
 
 Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
-    print("+++++++++++__________");
   try {
-      print("+++++++++++====================");
     final response = await http.get(Uri.parse('http://localhost:58508/api/FileExplorer/completed-files'));
-   print("++++++++++++++++++++++++++++++");
-   print(response.statusCode);
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
-      // Transform the response into a list of AudioEntity objects
-      print(response.body);
       return data.map((e) => AudioEntity.fromJson(e)).toList();
     } else {
       throw Exception('Failed to load audio files. Status code: ${response.statusCode}');
     }
   } catch (e) {
     if (e is http.ClientException) {
-      print("Caught a ClientException: ${e.message}");
     } else if (e is FormatException) {
-      print("Caught a FormatException: Invalid response format.");
     } else {
-      print("Error fetching audio files: $e");
     }
     return [];
   }
@@ -47,7 +38,6 @@ Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(String guid) async {
     final data = json.decode(response.body);
     return AudioTranscription.fromJson(data);
   } else {
-    print("Failed to fetch transcription. Status: ${response.statusCode}");
     return null;
   }
 }

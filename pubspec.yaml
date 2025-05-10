@@ -58,6 +58,8 @@ dependencies:
   flutter_waveform: ^0.0.1
   ffmpeg_kit_flutter_new: ^1.1.0
   rxdart: ^0.28.0
+  universal_html: ^2.2.4
+  path: ^1.9.1
 
   
 

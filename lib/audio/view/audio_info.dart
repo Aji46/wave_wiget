@@ -1,8 +1,5 @@
-
-
-
-
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,16 +26,22 @@ class _AudioInfoState extends State<AudioInfo> {
   bool _isDownloading = true;
   bool _isAudioLoaded = false;
   bool _isAudioPlayerReady = false;
+  late AudioDownloader _audioDownloader;
 
   @override
   void initState() {
     super.initState();
-
+    _audioDownloader = AudioDownloader();
     _fullTranscription = widget.audioFile.transcription;
-    // Slightly delay download to ensure widget is fully mounted
     Future.microtask(() {
       _downloadAudio();
     });
+  }
+
+  @override
+  void dispose() {
+    _audioDownloader.dispose();
+    super.dispose();
   }
 
   Future<void> _downloadAudio() async {
@@ -52,10 +55,31 @@ class _AudioInfoState extends State<AudioInfo> {
     });
 
     try {
-      final downloader = AudioDownloader();
-      final path = await downloader.downloadAudio(
+      // First check if we already have the audio cached
+      final cachedPath = await _audioDownloader.getAudioPath(widget.audioFile.guid);
+      if (cachedPath != null) {
+        if (!mounted) return;
+        
+        setState(() {
+          _localAudioPath = cachedPath;
+          _isDownloading = false;
+          _isAudioLoaded = true;
+        });
+        
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            setState(() {
+              _isAudioPlayerReady = true;
+            });
+          }
+        });
+        return;
+      }
+
+      // If not cached, download it
+      final path = await _audioDownloader.downloadAudio(
         widget.audioFile.guid, 
-        "downloaded_audio.mp3"
+        widget.audioFile.fileName
       );
 
       if (!mounted) return;
@@ -67,7 +91,6 @@ class _AudioInfoState extends State<AudioInfo> {
           _isAudioLoaded = true;
         });
         
-        // Allow a short delay for the audio player to initialize
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             setState(() {
@@ -203,9 +226,16 @@ class _AudioInfoState extends State<AudioInfo> {
         ),
       );
     } else if (_isAudioLoaded && _localAudioPath != null) {
+      // Platform-specific source handling
+      final source = kIsWeb 
+          ? UrlSource(_localAudioPath!)
+          : DeviceFileSource(_localAudioPath!);
+
+          print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++$_localAudioPath");
+          
       return WavedAudioPlayer(
         key: _waveformKey,
-        source: DeviceFileSource(_localAudioPath!),
+        source: source,
         iconColor: Colors.red,
         playedColor: Colors.red,
         unplayedColor: Colors.black,

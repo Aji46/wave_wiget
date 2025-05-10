@@ -67,6 +67,7 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
                                   ? Icons.folder_open
                                   : Icons.folder,
                               color: Colors.amber,
+                              
                             ),
                             const SizedBox(width: 8),
                             Text(

@@ -28,23 +28,58 @@ class AudioCubit extends Cubit<AudioCubitState> {
     }
   }
 
-  void toggleMainFolder(String? folderName) {
-    final isExpanded = state.expandedFolder == folderName;
-      // Collapse
-      emit(state.copyWith(
-        expandedFolder: null,
-        audioFiles: [],
-        selectedSubFolder: null,
-      ));
+  // void toggleMainFolder(String? folderName) {
+  //   final isExpanded = state.expandedFolder == folderName;
+  //     // Collapse
+      
+  //     emit(state.copyWith(
+  //       expandedFolder: null,
+  //       audioFiles: [],
+  //       selectedSubFolder: null,
+  //     ));
 
-      // Expand main folder and show its files
-      emit(state.copyWith(
-        expandedFolder: folderName,
-        audioFiles: state.mainEntity?.files ?? [],
-        selectedSubFolder: null,
-      ));
+  //     // Expand main folder and show its files
+  //     emit(state.copyWith(
+  //       expandedFolder: folderName,
+  //       audioFiles: state.mainEntity?.files ?? [],
+  //       selectedSubFolder: null,
+  //     ));
     
+  // }
+
+  void toggleMainFolder(String? folderName) {
+  // If clicking the already expanded folder, collapse it
+  if (state.expandedFolder == folderName) {
+    emit(state.copyWith(
+      expandedFolder: null,
+      audioFiles: [],
+      selectedSubFolder: null,
+    ));
+
+        emit(state.copyWith(
+      expandedFolder: folderName,
+      audioFiles: state.mainEntity?.files ?? [],
+      selectedSubFolder: null,
+    ));
+  } 
+  // Otherwise, expand the clicked folder
+  else {
+
+     emit(state.copyWith(
+      expandedFolder: null,
+      audioFiles: [],
+      selectedSubFolder: null,
+    ));
+    
+    emit(state.copyWith(
+      expandedFolder: folderName,
+      audioFiles: state.mainEntity?.files ?? [],
+      selectedSubFolder: null,
+    ));
   }
+}
+
+  
 
   void selectSubFolder(AudioFolder folder) {
     emit(state.copyWith(

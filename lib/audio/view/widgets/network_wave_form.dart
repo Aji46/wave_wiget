@@ -65,6 +65,7 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
   bool _isAudioSourceSet = false;
   bool _isAudioInitialized = false;
   bool _isPlayingCompleted = false;
+  bool _isDisposed = false;
 
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<void>? _playerCompleteSubscription;
@@ -77,10 +78,16 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      _setupAudioPlayer();
-      _loadAudioData();
-    });
+    _initAudioPlayer();
+  }
+
+  Future<void> _initAudioPlayer() async {
+    try {
+      await _setupAudioPlayer();
+      await _loadAudioData();
+    } catch (e) {
+      _safeCallOnError(WavedAudioPlayerError("Error initializing audio player: $e"));
+    }
   }
 
   Future<void> _loadAudioData() async {
@@ -105,90 +112,47 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
         _safeCallOnError(WavedAudioPlayerError("Audio bytes not loaded"));
         return;
       }
-      
+
       await _audioPlayer.setSource(
         BytesSource(_audioBytes!, mimeType: widget.source.mimeType),
       );
-      
-      if (mounted) {
+
+      if (!_isDisposed && mounted) {
         setState(() {
           _isAudioSourceSet = true;
         });
       }
-      
-      await _audioPlayer.getDuration().then((duration) {
-        if (duration != null && mounted) {
-          setState(() {
-            audioDuration = duration;
-            _isAudioInitialized = true;
-          });
-        }
-      });
+
+      final duration = await _audioPlayer.getDuration();
+      if (duration != null && !_isDisposed && mounted) {
+        setState(() {
+          audioDuration = duration;
+          _isAudioInitialized = true;
+        });
+      }
     } catch (e) {
       _safeCallOnError(WavedAudioPlayerError("Error setting audio source: $e"));
     }
-  }
-
-  Future<Uint8List?> _loadDeviceFileAudioWaveform(String filePath) async {
-    try {
-      final File file = File(filePath);
-      return await file.readAsBytes();
-    } catch (e) {
-      _safeCallOnError(WavedAudioPlayerError("Error loading file audio for waveform: $e"));
-    }
-    return null;
-  }
-
-  Future<Uint8List?> _loadAssetAudioWaveform(String path) async {
-    try {
-      final ByteData bytes = await rootBundle.load(path);
-      return bytes.buffer.asUint8List();
-    } catch (e) {
-      _safeCallOnError(WavedAudioPlayerError("Error loading asset audio for waveform: $e"));
-    }
-    return null;
-  }
-
-  Future<Uint8List?> _loadRemoteAudioWaveform(String url) async {
-    try {
-      final HttpClient httpClient = HttpClient();
-      final HttpClientRequest request = await httpClient.getUrl(Uri.parse(url));
-      final HttpClientResponse response = await request.close();
-
-      if (response.statusCode == 200) {
-        return await consolidateHttpClientResponseBytes(response);
-      } else {
-        _safeCallOnError(
-          WavedAudioPlayerError("Failed to load remote audio for waveform: ${response.statusCode}"),
-        );
-      }
-    } catch (e) {
-      _safeCallOnError(WavedAudioPlayerError("Error loading remote audio for waveform: $e"));
-    }
-    return null;
   }
 
   Future<void> _loadWaveform() async {
     try {
       if (_audioBytes == null) {
         if (widget.source is AssetSource) {
-          _audioBytes = await _loadAssetAudioWaveform(
-            (widget.source as AssetSource).path,
-          );
+          _audioBytes = await rootBundle.load((widget.source as AssetSource).path)
+              .then((byteData) => byteData.buffer.asUint8List());
         } else if (widget.source is UrlSource) {
-          _audioBytes = await _loadRemoteAudioWaveform(
-            (widget.source as UrlSource).url,
-          );
+          final response = await HttpClient().getUrl(Uri.parse((widget.source as UrlSource).url));
+          final request = await response.close();
+          _audioBytes = await consolidateHttpClientResponseBytes(request);
         } else if (widget.source is DeviceFileSource) {
-          _audioBytes = await _loadDeviceFileAudioWaveform(
-            (widget.source as DeviceFileSource).path,
-          );
+          _audioBytes = await File((widget.source as DeviceFileSource).path).readAsBytes();
         } else if (widget.source is BytesSource) {
           _audioBytes = (widget.source as BytesSource).bytes;
         }
       }
 
-      if (_audioBytes != null && mounted) {
+      if (_audioBytes != null && !_isDisposed && mounted) {
         setState(() {
           waveformData = _extractWaveformData(_audioBytes!);
         });
@@ -196,69 +160,6 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     } catch (e) {
       _safeCallOnError(WavedAudioPlayerError("Error loading audio for waveform: $e"));
     }
-  }
-
-  void _setupAudioPlayer() {
-    _playerStateSubscription?.cancel();
-    _playerCompleteSubscription?.cancel();
-    _durationSubscription?.cancel();
-    _positionSubscription?.cancel();
-
-    _playerStateSubscription = _audioPlayer.onPlayerStateChanged.listen((PlayerState state) {
-      Future.microtask(() {
-        if (mounted) {
-          setState(() {
-            isPlaying = (state == PlayerState.playing);
-            if (state == PlayerState.completed) {
-              _isPlayingCompleted = true;
-            }
-          });
-        }
-      });
-    });
-
-    _playerCompleteSubscription = _audioPlayer.onPlayerComplete.listen((event) {
-      Future.microtask(() {
-        if (mounted) {
-          setState(() {
-            isPlaying = false;
-            isPausing = true;
-            _isPlayingCompleted = true;
-          });
-        }
-      });
-    });
-
-    _durationSubscription = _audioPlayer.onDurationChanged.listen((Duration duration) {
-      Future.microtask(() {
-        if (mounted) {
-          setState(() {
-            audioDuration = duration;
-            isPausing = true;
-            _isAudioInitialized = true;
-          });
-        }
-      });
-    });
-
-    _positionSubscription = _audioPlayer.onPositionChanged.listen((Duration position) {
-      Future.microtask(() {
-        if (mounted) {
-          setState(() {
-            currentPosition = position;
-            isPausing = true;
-            _isPlayingCompleted = false;
-          });
-
-          String matchedTranscription = _findMatchedTranscription(position, transcriptionSegments);
-          setState(() {
-            _highlightedTranscription = matchedTranscription;
-          });
-
-          _checkCurrentSegment(position);
-        }
-      });
-    });
   }
 
   List<double> _extractWaveformData(Uint8List audioBytes) {
@@ -273,11 +174,74 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     return waveData;
   }
 
+  Future<void> _setupAudioPlayer() async {
+    _playerStateSubscription?.cancel();
+    _playerCompleteSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _positionSubscription?.cancel();
+
+    _playerStateSubscription = _audioPlayer.onPlayerStateChanged.listen((PlayerState state) {
+      if (_isDisposed) return;
+      
+      if (mounted) {
+        setState(() {
+          isPlaying = (state == PlayerState.playing);
+          if (state == PlayerState.completed) {
+            _isPlayingCompleted = true;
+          }
+        });
+      }
+    });
+
+    _playerCompleteSubscription = _audioPlayer.onPlayerComplete.listen((event) {
+      if (_isDisposed) return;
+      
+      if (mounted) {
+        setState(() {
+          isPlaying = false;
+          isPausing = true;
+          _isPlayingCompleted = true;
+        });
+      }
+    });
+
+    _durationSubscription = _audioPlayer.onDurationChanged.listen((Duration duration) {
+      if (_isDisposed) return;
+      
+      if (mounted) {
+        setState(() {
+          audioDuration = duration;
+          isPausing = true;
+          _isAudioInitialized = true;
+        });
+      }
+    });
+
+    _positionSubscription = _audioPlayer.onPositionChanged.listen((Duration position) {
+      if (_isDisposed) return;
+      
+      if (mounted) {
+        setState(() {
+          currentPosition = position;
+          isPausing = true;
+          _isPlayingCompleted = false;
+        });
+
+        String matchedTranscription = _findMatchedTranscription(position, transcriptionSegments);
+        setState(() {
+          _highlightedTranscription = matchedTranscription;
+        });
+
+        _checkCurrentSegment(position);
+      }
+    });
+  }
+
   Future<void> _fetchTranscription() async {
     try {
       final transcription = await getAudioTranscriptionByGuidDemo(widget.guid);
 
-      if (transcription != null && mounted) {
+      if (transcription != null && !_isDisposed && mounted) {
         setState(() {
           transcriptionSegments = transcription.srtSegments;
           _fullTranscription = transcription.transcription;
@@ -290,8 +254,8 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     }
   }
 
-  void _onWaveformTap(double tapX) async {
-    if (!_isAudioInitialized || waveWidth == 0 || audioDuration == Duration.zero) {
+  Future<void> _onWaveformTap(double tapX) async {
+    if (!_isAudioInitialized || waveWidth == 0 || audioDuration == Duration.zero || _isDisposed) {
       _safeCallOnError(WavedAudioPlayerError("Audio not fully initialized for seeking"));
       return;
     }
@@ -302,22 +266,24 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     );
 
     try {
+      // Reset the source to ensure playback works after completion
+      await _audioPlayer.setSource(
+        BytesSource(_audioBytes!, mimeType: widget.source.mimeType),
+      );
+
       await _audioPlayer.seek(newPosition);
-      
-      if (_isPlayingCompleted) {
-        await _audioPlayer.resume();
-        if (mounted) {
-          setState(() {
-            _isPlayingCompleted = false;
-            isPlaying = true;
-          });
-        }
-      } else if (!isPlaying) {
-        await _audioPlayer.resume();
+      await _audioPlayer.resume();
+
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _isPlayingCompleted = false;
+          isPlaying = true;
+          _isAudioSourceSet = true;
+        });
       }
 
       TranscriptionSegment? tappedSegment = _findSegmentAtPosition(newPosition);
-      if (mounted) {
+      if (!_isDisposed && mounted) {
         setState(() {
           selectedSegment = tappedSegment;
         });
@@ -338,14 +304,15 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
   }
 
   Future<void> _playAudio() async {
+    if (_isDisposed) return;
+    
     try {
       if (!_isAudioSourceSet) {
-        _safeCallOnError(WavedAudioPlayerError("Audio source not set yet"));
-        return;
+        await _setAudioSource();
       }
       
       await _audioPlayer.resume();
-      if (mounted) {
+      if (!_isDisposed && mounted) {
         setState(() {
           isPlaying = true;
           _isPlayingCompleted = false;
@@ -356,22 +323,7 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     }
   }
 
-  Future<void> replayFromPosition(Duration position) async {
-    try {
-      await _audioPlayer.seek(position);
-      await _audioPlayer.resume();
-      if (mounted) {
-        setState(() {
-          isPlaying = true;
-          _isPlayingCompleted = false;
-        });
-      }
-    } catch (e) {
-      _safeCallOnError(WavedAudioPlayerError("Error replaying from position: $e"));
-    }
-  }
-
-  void seekToPosition(double percentage) async {
+  Future<void> seekToPosition(double percentage) async {
     if (!_isAudioInitialized || audioDuration == Duration.zero) {
       _safeCallOnError(WavedAudioPlayerError("Audio not fully initialized for seeking"));
       return;
@@ -389,7 +341,7 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
   }
 
   void setSelectedSegment(TranscriptionSegment segment) {
-    if (mounted) {
+    if (!_isDisposed && mounted) {
       setState(() {
         selectedSegment = segment;
       });
@@ -454,7 +406,7 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
 
       if (position >= start && position <= end) {
         if (selectedSegment != segment) {
-          if (mounted) {
+          if (!_isDisposed && mounted) {
             setState(() {
               selectedSegment = segment;
 
@@ -476,7 +428,7 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
       }
     }
 
-    if (selectedSegment != null && mounted) {
+    if (selectedSegment != null && !_isDisposed && mounted) {
       setState(() {
         selectedSegment = null;
       });
@@ -484,14 +436,12 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
   }
 
   void _safeCallOnError(WavedAudioPlayerError error) {
-    Future.microtask(() {
-      if (widget.onError != null) {
-        debugPrint('\x1B[31m${error.message}\x1B[0m');
-        widget.onError!(error);
-      } else {
-        debugPrint('\x1B[31mAudio Player Error: ${error.message}\x1B[0m');
-      }
-    });
+    if (_isDisposed) return;
+    
+    if (widget.onError != null) {
+      widget.onError!(error);
+    }
+    debugPrint('\x1B[31m${error.message}\x1B[0m');
   }
 
   @override
@@ -502,7 +452,7 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
       builder: (context, constraints) {
         return GestureDetector(
           onTapDown: (TapDownDetails details) {
-            if (_isAudioInitialized) {
+            if (_isAudioInitialized && !_isDisposed) {
               _onWaveformTap(details.localPosition.dx);
             }
           },
@@ -543,6 +493,7 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _playerStateSubscription?.cancel();
     _playerCompleteSubscription?.cancel();
     _durationSubscription?.cancel();

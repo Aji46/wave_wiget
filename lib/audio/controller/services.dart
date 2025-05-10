@@ -231,7 +231,7 @@ Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
 }
 
 Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(guid) async {
-
+  
   final uri = Uri.parse("http://localhost:58508/api/FileExplorer/GetByProcessedGuid/$guid");
   final response = await http.get(uri);
 

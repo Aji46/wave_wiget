@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:test_widget/audio/controller/cubit/audio_cubit.dart';
 import 'package:test_widget/audio/controller/cubit/audio_cubit_state.dart';
-import 'package:test_widget/audio/controller/services.dart';
 import 'package:test_widget/audio/view/audio_info.dart';
 
 class FileExploreScreen extends StatefulWidget {
@@ -21,10 +20,8 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
 
   @override
   void initState() {
-    
     super.initState();
     _audioCubit = AudioCubit()..fetchAudioFolders();
-    getAudioFilesBySubFolder();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
       _audioCubit.fetchAudioFolders();
     });
@@ -52,20 +49,17 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
                 Container(
                   width: 250,
                   color: Colors.grey[200],
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         "FILE EXPLORE",
-                        style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 30),
                       GestureDetector(
-                        onTap: () =>
-                            cubit.toggleMainFolder(state.audioEntityName),
+                        onTap: () => cubit.toggleMainFolder(state.audioEntityName),
                         child: Row(
                           children: [
                             Icon(
@@ -83,13 +77,12 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
                         ),
                       ),
                       const SizedBox(height: 15),
-                if (state.expandedFolder == state.audioEntityName)
+                      if (state.expandedFolder == state.audioEntityName)
                         ...state.audioFolders.map(
                           (subFolder) => GestureDetector(
                             onTap: () => cubit.selectSubFolder(subFolder),
                             child: Padding(
-                              padding: const EdgeInsets.only(
-                                  left: 30.0, bottom: 10),
+                              padding: const EdgeInsets.only(left: 30.0, bottom: 10),
                               child: Row(
                                 children: [
                                   Icon(
@@ -129,77 +122,63 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) =>
-                                              AudioInfo(audioFile: audio),
+                                          builder: (_) => AudioInfo(audioFile: audio),
                                         ),
                                       );
                                     },
                                     child: Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 20.0),
+                                      padding: const EdgeInsets.only(bottom: 20.0),
                                       child: Container(
                                         padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(10),
                                           border: Border.all(
                                             color: Colors.grey.shade300,
                                           ),
                                         ),
                                         child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Icon(Icons.audio_file,
-                                                size: 40,
-                                                color: Colors.grey[700]),
+                                                size: 40, color: Colors.grey[700]),
                                             const SizedBox(width: 16),
                                             Expanded(
                                               child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     audio.fileName,
                                                     style: const TextStyle(
                                                       fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                                      fontWeight: FontWeight.bold,
                                                     ),
                                                   ),
                                                   const SizedBox(height: 8),
                                                   Text(
-                                                    audio.transcription
-                                                            .isNotEmpty
+                                                    audio.transcription.isNotEmpty
                                                         ? audio.transcription
                                                         : "No transcription available",
                                                     style: TextStyle(
-                                                        fontSize: 14,
-                                                        color:
-                                                            Colors.grey[700]),
+                                                        fontSize: 14, color: Colors.grey[700]),
                                                     maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                    overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ],
                                               ),
                                             ),
                                             Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.end,
+                                              crossAxisAlignment: CrossAxisAlignment.end,
                                               children: [
                                                 Text(
                                                     "Received at: ${audio.receiveddAt}",
                                                     style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: Colors.grey)),
+                                                        fontSize: 12, color: Colors.grey)),
                                                 const SizedBox(height: 4),
                                                 Text(
                                                     "Converted at: ${audio.convertedAt}",
                                                     style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: Colors.grey)),
+                                                        fontSize: 12, color: Colors.grey)),
                                               ],
                                             ),
                                           ],
@@ -219,4 +198,3 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
     );
   }
 }
-

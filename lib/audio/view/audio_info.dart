@@ -1,6 +1,7 @@
 
 
 
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -32,6 +33,7 @@ class _AudioInfoState extends State<AudioInfo> {
   @override
   void initState() {
     super.initState();
+
     _fullTranscription = widget.audioFile.transcription;
     // Slightly delay download to ensure widget is fully mounted
     Future.microtask(() {

@@ -186,7 +186,7 @@ class AudioFile {
     return AudioFile(
       guid: json['id'] ?? 0,
       fileName: json['fileName'] ?? '',
-      receiveddAt: DateTime.tryParse(json['receivedAt'] ?? '') ?? DateTime(1970),
+      receiveddAt: DateTime.tryParse(json['receiveddAt'] ?? '') ?? DateTime(1970),
       convertedAt: DateTime.tryParse(json['convertedAt'] ?? '') ?? DateTime(1970),
       transcription: json['transcription'] ?? '',
       folderPath: json['folderPath'] ?? '',

@@ -1,5 +1,3 @@
-
-
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -65,9 +63,9 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
   String _highlightedTranscription = "";
   String _fullTranscription = "";
   bool _isAudioSourceSet = false;
-  bool _isAudioInitialized = false; // Track if audio is fully initialized
+  bool _isAudioInitialized = false;
+  bool _isPlayingCompleted = false;
 
-  // Stream subscriptions
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<void>? _playerCompleteSubscription;
   StreamSubscription<Duration>? _durationSubscription;
@@ -79,7 +77,6 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
   @override
   void initState() {
     super.initState();
-    // Use a small delay to ensure proper widget initialization
     Future.microtask(() {
       _setupAudioPlayer();
       _loadAudioData();
@@ -92,7 +89,6 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
       if (_audioBytes != null) {
         await _setAudioSource();
         await _fetchTranscription();
-        // Wait for audio to initialize fully before playing
         if (_isAudioSourceSet) {
           await Future.delayed(const Duration(milliseconds: 300));
           await _playAudio();
@@ -120,7 +116,6 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
         });
       }
       
-      // Wait for duration to be set before considering audio initialized
       await _audioPlayer.getDuration().then((duration) {
         if (duration != null && mounted) {
           setState(() {
@@ -131,36 +126,6 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
       });
     } catch (e) {
       _safeCallOnError(WavedAudioPlayerError("Error setting audio source: $e"));
-    }
-  }
-
-  Future<void> _loadWaveform() async {
-    try {
-      if (_audioBytes == null) {
-        if (widget.source is AssetSource) {
-          _audioBytes = await _loadAssetAudioWaveform(
-            (widget.source as AssetSource).path,
-          );
-        } else if (widget.source is UrlSource) {
-          _audioBytes = await _loadRemoteAudioWaveform(
-            (widget.source as UrlSource).url,
-          );
-        } else if (widget.source is DeviceFileSource) {
-          _audioBytes = await _loadDeviceFileAudioWaveform(
-            (widget.source as DeviceFileSource).path,
-          );
-        } else if (widget.source is BytesSource) {
-          _audioBytes = (widget.source as BytesSource).bytes;
-        }
-      }
-
-      if (_audioBytes != null && mounted) {
-        setState(() {
-          waveformData = _extractWaveformData(_audioBytes!);
-        });
-      }
-    } catch (e) {
-      _safeCallOnError(WavedAudioPlayerError("Error loading audio for waveform: $e"));
     }
   }
 
@@ -203,20 +168,50 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     return null;
   }
 
+  Future<void> _loadWaveform() async {
+    try {
+      if (_audioBytes == null) {
+        if (widget.source is AssetSource) {
+          _audioBytes = await _loadAssetAudioWaveform(
+            (widget.source as AssetSource).path,
+          );
+        } else if (widget.source is UrlSource) {
+          _audioBytes = await _loadRemoteAudioWaveform(
+            (widget.source as UrlSource).url,
+          );
+        } else if (widget.source is DeviceFileSource) {
+          _audioBytes = await _loadDeviceFileAudioWaveform(
+            (widget.source as DeviceFileSource).path,
+          );
+        } else if (widget.source is BytesSource) {
+          _audioBytes = (widget.source as BytesSource).bytes;
+        }
+      }
+
+      if (_audioBytes != null && mounted) {
+        setState(() {
+          waveformData = _extractWaveformData(_audioBytes!);
+        });
+      }
+    } catch (e) {
+      _safeCallOnError(WavedAudioPlayerError("Error loading audio for waveform: $e"));
+    }
+  }
+
   void _setupAudioPlayer() {
-    // Cancel any existing subscriptions first
     _playerStateSubscription?.cancel();
     _playerCompleteSubscription?.cancel();
     _durationSubscription?.cancel();
     _positionSubscription?.cancel();
 
-    // Set up new subscriptions
     _playerStateSubscription = _audioPlayer.onPlayerStateChanged.listen((PlayerState state) {
-      // Use Future.microtask to ensure we're on the main thread
       Future.microtask(() {
         if (mounted) {
           setState(() {
             isPlaying = (state == PlayerState.playing);
+            if (state == PlayerState.completed) {
+              _isPlayingCompleted = true;
+            }
           });
         }
       });
@@ -228,6 +223,7 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
           setState(() {
             isPlaying = false;
             isPausing = true;
+            _isPlayingCompleted = true;
           });
         }
       });
@@ -251,6 +247,7 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
           setState(() {
             currentPosition = position;
             isPausing = true;
+            _isPlayingCompleted = false;
           });
 
           String matchedTranscription = _findMatchedTranscription(position, transcriptionSegments);
@@ -264,45 +261,8 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     });
   }
 
-  void _checkCurrentSegment(Duration position) {
-    for (var segment in transcriptionSegments) {
-      Duration start = _parseDuration(segment.startTime);
-      Duration end = _parseDuration(segment.endTime);
-
-      if (position >= start && position <= end) {
-        if (selectedSegment != segment) {
-          if (mounted) {
-            setState(() {
-              selectedSegment = segment;
-
-              String matchedText = segment.transcriptText;
-              String highlightedTranscription = _highlightTranscriptionSentence(
-                matchedText,
-                _fullTranscription,
-              );
-
-              if (widget.onTranscriptionReceived != null) {
-                widget.onTranscriptionReceived!(highlightedTranscription);
-              }
-
-              _highlightedTranscription = highlightedTranscription;
-            });
-          }
-        }
-        return;
-      }
-    }
-
-    if (selectedSegment != null && mounted) {
-      setState(() {
-        selectedSegment = null;
-      });
-    }
-  }
-
   List<double> _extractWaveformData(Uint8List audioBytes) {
     List<double> waveData = [];
-    // Default to a reasonable value if waveWidth is not set yet
     double effectiveWidth = waveWidth > 0 ? waveWidth : 300;
     int steps = max(1, (audioBytes.length / (effectiveWidth / (widget.barWidth + widget.spacing))).floor());
     
@@ -317,7 +277,6 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     try {
       final transcription = await getAudioTranscriptionByGuidDemo(widget.guid);
 
-      print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++${widget.guid}");
       if (transcription != null && mounted) {
         setState(() {
           transcriptionSegments = transcription.srtSegments;
@@ -345,7 +304,15 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     try {
       await _audioPlayer.seek(newPosition);
       
-      if (!isPlaying) {
+      if (_isPlayingCompleted) {
+        await _audioPlayer.resume();
+        if (mounted) {
+          setState(() {
+            _isPlayingCompleted = false;
+            isPlaying = true;
+          });
+        }
+      } else if (!isPlaying) {
         await _audioPlayer.resume();
       }
 
@@ -367,6 +334,65 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
       }
     } catch (e) {
       _safeCallOnError(WavedAudioPlayerError("Error seeking or playing audio: $e"));
+    }
+  }
+
+  Future<void> _playAudio() async {
+    try {
+      if (!_isAudioSourceSet) {
+        _safeCallOnError(WavedAudioPlayerError("Audio source not set yet"));
+        return;
+      }
+      
+      await _audioPlayer.resume();
+      if (mounted) {
+        setState(() {
+          isPlaying = true;
+          _isPlayingCompleted = false;
+        });
+      }
+    } catch (e) {
+      _safeCallOnError(WavedAudioPlayerError("Error playing audio: $e"));
+    }
+  }
+
+  Future<void> replayFromPosition(Duration position) async {
+    try {
+      await _audioPlayer.seek(position);
+      await _audioPlayer.resume();
+      if (mounted) {
+        setState(() {
+          isPlaying = true;
+          _isPlayingCompleted = false;
+        });
+      }
+    } catch (e) {
+      _safeCallOnError(WavedAudioPlayerError("Error replaying from position: $e"));
+    }
+  }
+
+  void seekToPosition(double percentage) async {
+    if (!_isAudioInitialized || audioDuration == Duration.zero) {
+      _safeCallOnError(WavedAudioPlayerError("Audio not fully initialized for seeking"));
+      return;
+    }
+
+    final position = Duration(
+      milliseconds: (audioDuration.inMilliseconds * percentage / 100).round(),
+    );
+    
+    try {
+      await _audioPlayer.seek(position);
+    } catch (e) {
+      _safeCallOnError(WavedAudioPlayerError("Error seeking audio: $e"));
+    }
+  }
+
+  void setSelectedSegment(TranscriptionSegment segment) {
+    if (mounted) {
+      setState(() {
+        selectedSegment = segment;
+      });
     }
   }
 
@@ -421,70 +447,51 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
     );
   }
 
-  Future<void> _playAudio() async {
-    try {
-      if (!_isAudioSourceSet) {
-        _safeCallOnError(WavedAudioPlayerError("Audio source not set yet"));
+  void _checkCurrentSegment(Duration position) {
+    for (var segment in transcriptionSegments) {
+      Duration start = _parseDuration(segment.startTime);
+      Duration end = _parseDuration(segment.endTime);
+
+      if (position >= start && position <= end) {
+        if (selectedSegment != segment) {
+          if (mounted) {
+            setState(() {
+              selectedSegment = segment;
+
+              String matchedText = segment.transcriptText;
+              String highlightedTranscription = _highlightTranscriptionSentence(
+                matchedText,
+                _fullTranscription,
+              );
+
+              if (widget.onTranscriptionReceived != null) {
+                widget.onTranscriptionReceived!(highlightedTranscription);
+              }
+
+              _highlightedTranscription = highlightedTranscription;
+            });
+          }
+        }
         return;
       }
-      
-      await _audioPlayer.resume();
-      if (mounted) {
-        setState(() {
-          isPlaying = true;
-        });
-      }
-    } catch (e) {
-      _safeCallOnError(WavedAudioPlayerError("Error playing audio: $e"));
-    }
-  }
-
-  void seekToPosition(double percentage) async {
-    if (!_isAudioInitialized || audioDuration == Duration.zero) {
-      _safeCallOnError(WavedAudioPlayerError("Audio not fully initialized for seeking"));
-      return;
     }
 
-    final position = Duration(
-      milliseconds: (audioDuration.inMilliseconds * percentage / 100).round(),
-    );
-    
-    try {
-      await _audioPlayer.seek(position);
-    } catch (e) {
-      _safeCallOnError(WavedAudioPlayerError("Error seeking audio: $e"));
-    }
-  }
-
-  void setSelectedSegment(TranscriptionSegment segment) {
-    if (mounted) {
+    if (selectedSegment != null && mounted) {
       setState(() {
-        selectedSegment = segment;
+        selectedSegment = null;
       });
     }
   }
 
   void _safeCallOnError(WavedAudioPlayerError error) {
-    // Use microtask to ensure we're on the main thread
     Future.microtask(() {
       if (widget.onError != null) {
         debugPrint('\x1B[31m${error.message}\x1B[0m');
         widget.onError!(error);
       } else {
-        // If no error handler is provided, at least print to console
         debugPrint('\x1B[31mAudio Player Error: ${error.message}\x1B[0m');
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _playerStateSubscription?.cancel();
-    _playerCompleteSubscription?.cancel();
-    _durationSubscription?.cancel();
-    _positionSubscription?.cancel();
-    _audioPlayer.dispose();
-    super.dispose();
   }
 
   @override
@@ -525,13 +532,23 @@ class WavedAudioPlayerState extends State<WavedAudioPlayer> {
                       borderRadius: BorderRadius.circular(40),
                       value: (_isAudioSourceSet && audioDuration.inMilliseconds > 0)
                           ? currentPosition.inMilliseconds / audioDuration.inMilliseconds
-                          : null, // Use null for indeterminate progress
+                          : null,
                     ),
                   ),
           ),
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _playerStateSubscription?.cancel();
+    _playerCompleteSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _audioPlayer.dispose();
+    super.dispose();
   }
 }
 

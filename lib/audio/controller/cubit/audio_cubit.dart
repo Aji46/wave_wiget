@@ -1,4 +1,4 @@
-// file: audio_cubit.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:test_widget/audio/controller/services.dart';
 import 'package:test_widget/audio/model/api/audio_entity.dart';
@@ -18,6 +18,7 @@ class AudioCubit extends Cubit<AudioCubitState> {
           isLoading: false,
           audioEntityName: mainEntity.name,
           audioFolders: mainEntity.subFolders,
+          mainEntity: mainEntity,
         ));
       } else {
         emit(state.copyWith(isLoading: false, audioFolders: []));
@@ -27,27 +28,23 @@ class AudioCubit extends Cubit<AudioCubitState> {
     }
   }
 
-void toggleMainFolder(String? folderName) {
-  final isExpanded = state.expandedFolder == folderName;
+  void toggleMainFolder(String? folderName) {
+    final isExpanded = state.expandedFolder == folderName;
+      // Collapse
+      emit(state.copyWith(
+        expandedFolder: null,
+        audioFiles: [],
+        selectedSubFolder: null,
+      ));
 
-  if (isExpanded) {
-    emit(state.copyWith(
-      expandedFolder: null,
-      audioFiles: [],
-      selectedSubFolder: null,
-    ));
-  } else {
-    final selectedEntity = state.audioEntityName == folderName
-        ? state.audioFolders.firstWhere((e) => e.name == folderName, orElse: () => AudioFolder(name: '', path: '', type: '', files: []))
-        : null;
-    emit(state.copyWith(
-      expandedFolder: folderName,
-      audioFiles: selectedEntity?.files ?? [],
-      selectedSubFolder: null,
-    ));
+      // Expand main folder and show its files
+      emit(state.copyWith(
+        expandedFolder: folderName,
+        audioFiles: state.mainEntity?.files ?? [],
+        selectedSubFolder: null,
+      ));
+    
   }
-}
-
 
   void selectSubFolder(AudioFolder folder) {
     emit(state.copyWith(
@@ -55,6 +52,4 @@ void toggleMainFolder(String? folderName) {
       audioFiles: folder.files,
     ));
   }
-
-  
 }

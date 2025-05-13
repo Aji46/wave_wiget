@@ -79,7 +79,7 @@ class _AudioInfoState extends State<AudioInfo> {
       // If not cached, download it
       final path = await _audioDownloader.downloadAudio(
         widget.audioFile.guid, 
-        widget.audioFile.fileName
+        widget.audioFile.fileName,
       );
 
       if (!mounted) return;
@@ -192,10 +192,9 @@ class _AudioInfoState extends State<AudioInfo> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 10),
-            const SizedBox(height: 30),
+            const SizedBox(height: 40),
             _buildAudioPlayer(),
-            const SizedBox(height: 50),
+            const SizedBox(height: 20),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16.0),

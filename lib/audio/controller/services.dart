@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:test_widget/audio/config.dart';
 import 'package:test_widget/audio/model/api/audio_entity.dart';
 import 'package:test_widget/audio/model/api/tanscriptionSegment.dart';
 import 'package:universal_html/html.dart' as html;
@@ -15,7 +16,7 @@ Map<int, String> _audioPathCache = {};
 
 Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
   try {
-    final response = await http.get(Uri.parse('http://localhost:58508/api/FileExplorer/completed-files'));
+    final response = await http.get(Uri.parse('$kBaseUrl/api/FileExplorer/completed-files'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       return data.map((e) => AudioEntity.fromJson(e)).toList();
@@ -30,7 +31,7 @@ Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
 
 Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(guid) async {
   
-  final uri = Uri.parse("http://localhost:58508/api/FileExplorer/GetByProcessedGuid/$guid");
+  final uri = Uri.parse("$kBaseUrl/api/FileExplorer/GetByProcessedGuid/$guid");
   final response = await http.get(uri);
 
   if (response.statusCode == 200) {
@@ -59,9 +60,13 @@ class AudioDownloader {
       debugPrint('Found in cache: ${_audioPathCache[guid]}');
       return _audioPathCache[guid];
     }
-
-    final url = Uri.parse('http://localhost:58508/api/FileExplorer/DownloadAudio/$guid');
+final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
+    final url = Uri.parse('$kBaseUrl/api/FileExplorer/DownloadAudio/$guid');
     debugPrint('Downloading from: $url');
+
+    if(kIsWeb){
+      return uri;
+    }
 
     try {
       final response = await http.get(url);

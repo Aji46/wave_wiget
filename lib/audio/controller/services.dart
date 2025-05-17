@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
-import 'package:test_widget/audio/config.dart';
+import 'package:test_widget/config.dart';
 import 'package:test_widget/audio/model/api/audio_entity.dart';
 import 'package:test_widget/audio/model/api/tanscriptionSegment.dart';
 import 'package:universal_html/html.dart' as html;
@@ -16,12 +15,16 @@ Map<int, String> _audioPathCache = {};
 
 Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
   try {
-    final response = await http.get(Uri.parse('$kBaseUrl/api/FileExplorer/completed-files'));
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/api/FileExplorer/completed-files'),
+    );
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       return data.map((e) => AudioEntity.fromJson(e)).toList();
     } else {
-      throw Exception('Failed to load audio files. Status code: ${response.statusCode}');
+      throw Exception(
+        'Failed to load audio files. Status code: ${response.statusCode}',
+      );
     }
   } catch (e) {
     debugPrint('Error fetching audio files: $e');
@@ -30,8 +33,9 @@ Future<List<AudioEntity>> getAudioFilesBySubFolder() async {
 }
 
 Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(guid) async {
-  
-  final uri = Uri.parse("$kBaseUrl/api/FileExplorer/GetByProcessedGuid/$guid");
+  final uri = Uri.parse(
+    "${AppConfig.baseUrl}/api/FileExplorer/GetByProcessedGuid/$guid",
+  );
   final response = await http.get(uri);
 
   if (response.statusCode == 200) {
@@ -42,11 +46,7 @@ Future<AudioTranscription?> getAudioTranscriptionByGuidDemo(guid) async {
   }
 }
 
-
-
 // import 'package:http/http.dart' as http;
-
-
 
 class AudioDownloader {
   final Map<int, String> _audioPathCache = {};
@@ -60,11 +60,13 @@ class AudioDownloader {
       debugPrint('Found in cache: ${_audioPathCache[guid]}');
       return _audioPathCache[guid];
     }
-final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
-    final url = Uri.parse('$kBaseUrl/api/FileExplorer/DownloadAudio/$guid');
+    final uri = '${AppConfig.baseUrl}/api/FileExplorer/DownloadAudio/$guid';
+    final url = Uri.parse(
+      '${AppConfig.baseUrl}/api/FileExplorer/DownloadAudio/$guid',
+    );
     debugPrint('Downloading from: $url');
 
-    if(kIsWeb){
+    if (kIsWeb) {
       return uri;
     }
 
@@ -74,14 +76,24 @@ final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
       if (response.statusCode == 200) {
         if (kIsWeb) {
           debugPrint('Processing web download...');
-          final webPath = await _handleWebDownload(response.bodyBytes, fileName, guid);
+          final webPath = await _handleWebDownload(
+            response.bodyBytes,
+            fileName,
+            guid,
+          );
           _audioPathCache[guid] = webPath ?? '';
           _webAudioCache[guid] = webPath ?? '';
-          debugPrint('Web download complete. Blob URL: ${webPath?.substring(0, 30)}...');
+          debugPrint(
+            'Web download complete. Blob URL: ${webPath?.substring(0, 30)}...',
+          );
           return webPath;
         } else {
           debugPrint('Processing mobile/desktop download...');
-          final filePath = await _saveAudioFile(response.bodyBytes, fileName, guid);
+          final filePath = await _saveAudioFile(
+            response.bodyBytes,
+            fileName,
+            guid,
+          );
           _audioPathCache[guid] = filePath ?? '';
           debugPrint('File saved to: $filePath');
           return filePath;
@@ -96,7 +108,11 @@ final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
     }
   }
 
-  Future<String?> _handleWebDownload(Uint8List bytes, String fileName, int guid) async {
+  Future<String?> _handleWebDownload(
+    Uint8List bytes,
+    String fileName,
+    int guid,
+  ) async {
     try {
       final extension = fileName.split('.').last.toLowerCase();
       final mimeType = _getMimeType(extension);
@@ -106,9 +122,10 @@ final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
       final url = html.Url.createObjectUrlFromBlob(blob);
 
       // Optional: Trigger download
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', fileName)
-        ..click();
+      final anchor =
+          html.AnchorElement(href: url)
+            ..setAttribute('download', fileName)
+            ..click();
 
       return url;
     } catch (e) {
@@ -119,19 +136,28 @@ final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
 
   String _getMimeType(String extension) {
     switch (extension) {
-      case 'mp3': return 'audio/mpeg';
-      case 'wav': return 'audio/wav';
-      case 'ogg': return 'audio/ogg';
-      case 'm4a': return 'audio/mp4';
-      default: return 'application/octet-stream';
+      case 'mp3':
+        return 'audio/mpeg';
+      case 'wav':
+        return 'audio/wav';
+      case 'ogg':
+        return 'audio/ogg';
+      case 'm4a':
+        return 'audio/mp4';
+      default:
+        return 'application/octet-stream';
     }
   }
 
-  Future<String?> _saveAudioFile(List<int> bytes, String fileName, int guid) async {
+  Future<String?> _saveAudioFile(
+    List<int> bytes,
+    String fileName,
+    int guid,
+  ) async {
     try {
       final directory = await _getStorageDirectory();
       final audioDir = Directory(path.join(directory.path, 'audio_downloads'));
-      
+
       if (!await audioDir.exists()) {
         debugPrint('Creating audio directory: ${audioDir.path}');
         await audioDir.create(recursive: true);
@@ -140,10 +166,10 @@ final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
       final extension = fileName.split('.').last;
       final saveName = 'audio_$guid.$extension';
       final filePath = path.join(audioDir.path, saveName);
-      
+
       debugPrint('Saving file to: $filePath');
       await File(filePath).writeAsBytes(bytes);
-      
+
       return filePath;
     } catch (e) {
       debugPrint('File save error: $e');
@@ -155,7 +181,8 @@ final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
     if (Platform.isAndroid || Platform.isIOS) {
       return await getApplicationDocumentsDirectory();
     } else {
-      return await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+      return await getDownloadsDirectory() ??
+          await getApplicationDocumentsDirectory();
     }
   }
 
@@ -163,7 +190,7 @@ final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
     if (_audioPathCache.containsKey(guid)) {
       return _audioPathCache[guid];
     }
-    
+
     if (kIsWeb) {
       return _webAudioCache[guid];
     }
@@ -171,10 +198,10 @@ final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
     try {
       final directory = await _getStorageDirectory();
       final audioDir = Directory(path.join(directory.path, 'audio_downloads'));
-      
+
       if (await audioDir.exists()) {
         final files = await audioDir.list().toList();
-        
+
         for (var file in files) {
           if (file is File && file.path.contains('audio_$guid')) {
             _audioPathCache[guid] = file.path;
@@ -211,19 +238,18 @@ final uri='$kBaseUrl/api/FileExplorer/DownloadAudio/$guid';
 
   Future<void> clearDownloadedFiles() async {
     if (kIsWeb) return;
-    
+
     try {
       final directory = await _getStorageDirectory();
       final audioDir = Directory(path.join(directory.path, 'audio_downloads'));
-      
+
       if (await audioDir.exists()) {
         await audioDir.delete(recursive: true);
       }
     } catch (e) {
       debugPrint('Error clearing downloaded files: $e');
     }
-    
+
     _audioPathCache.clear();
   }
 }
-

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:test_widget/audio/controller/cubit/audio_cubit.dart';
 import 'package:test_widget/audio/view/home_page.dart';
+import 'package:test_widget/config.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppConfig.loadConfig(); // Wait for config
   runApp(const MyApp());
 }
 
@@ -19,10 +22,12 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: BlocProvider(
-        create: (_) => AudioCubit()..fetchAudioFolders(), // Initialize cubit and fetch data
+        create:
+            (_) =>
+                AudioCubit()
+                  ..fetchAudioFolders(), // Initialize cubit and fetch data
         child: const FileExploreScreen(), // Your home screen
       ),
     );
   }
 }
-

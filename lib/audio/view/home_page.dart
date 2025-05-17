@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:test_widget/audio/controller/cubit/audio_cubit.dart';
 import 'package:test_widget/audio/controller/cubit/audio_cubit_state.dart';
+import 'package:test_widget/audio/model/api/audio_entity.dart';
 import 'package:test_widget/audio/view/audio_info.dart';
 
 class FileExploreScreen extends StatefulWidget {
@@ -76,7 +77,7 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
                             ? const Center(child: CircularProgressIndicator())
                             : state.audioFiles.isEmpty
                             ? const Center(child: Text("No audio files found"))
-                            : _buildAudioList(state, isMobile, isTablet),
+                            : AudioListComponent(audioFiles: state.audioFiles),
                   ),
                 ),
               ],
@@ -188,96 +189,198 @@ class _FileExploreScreenState extends State<FileExploreScreen> {
       ),
     );
   }
+}
 
-  Widget _buildAudioList(AudioCubitState state, bool isMobile, bool isTablet) {
-    final cubit = context.read<AudioCubit>();
+class AudioListComponent extends StatefulWidget {
+  const AudioListComponent({super.key, required this.audioFiles});
 
-    return ListView.builder(
-      itemCount: state.audioFiles.length,
-      itemBuilder: (context, index) {
-        final audio = state.audioFiles[index];
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => AudioInfo(audioFile: audio)),
-            );
-          },
-          child: Padding(
-            padding: EdgeInsets.only(bottom: isMobile ? 10.0 : 20.0),
-            child: Container(
-              padding: EdgeInsets.all(isMobile ? 12 : 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.audio_file,
-                    size: isMobile ? 30 : 40,
-                    color: Colors.grey[700],
-                  ),
-                  SizedBox(width: isMobile ? 12 : 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          audio.fileName,
-                          style: TextStyle(
-                            fontSize: isMobile ? 14 : 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: isMobile ? 4 : 8),
-                        Text(
-                          audio.transcription.isNotEmpty
-                              ? audio.transcription
-                              : "No transcription available",
-                          style: TextStyle(
-                            fontSize: isMobile ? 12 : 14,
-                            color: Colors.grey[700],
-                          ),
-                          maxLines: isMobile ? 2 : 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!isMobile) ...[
-                    SizedBox(width: isTablet ? 8 : 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          "Received: ${DateFormat('dd/MM/yyyy hh:mm:ss a').format(audio.receiveddAt.toLocal())}",
-                          style: TextStyle(
-                            fontSize: isTablet ? 10 : 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        SizedBox(height: isTablet ? 2 : 4),
-                        Text(
-                          "Converted: ${DateFormat('dd/MM/yyyy hh:mm:ss a').format(audio.convertedAt.toLocal())}",
-                          style: TextStyle(
-                            fontSize: isTablet ? 10 : 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
+  final List<AudioFile> audioFiles;
+
+  @override
+  State<AudioListComponent> createState() => _AudioListComponentState();
+}
+
+class _AudioListComponentState extends State<AudioListComponent> {
+  late List<AudioFile> sortedAudioFiles;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _isAscending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sortAudioFiles();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.trim().toLowerCase();
+    });
+  }
+
+  void _sortAudioFiles() {
+    sortedAudioFiles = [...widget.audioFiles];
+    sortedAudioFiles.sort(
+      (a, b) =>
+          _isAscending
+              ? a.convertedAt.compareTo(b.convertedAt)
+              : b.convertedAt.compareTo(a.convertedAt),
+    );
+  }
+
+  void _toggleSortOrder() {
+    setState(() {
+      _isAscending = !_isAscending;
+      _sortAudioFiles();
+    });
+  }
+
+  List<AudioFile> get _filteredAudioFiles {
+    if (_searchQuery.isEmpty) return sortedAudioFiles;
+    return sortedAudioFiles.where((audio) {
+      return audio.fileName.toLowerCase().contains(_searchQuery);
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isTablet = MediaQuery.of(context).size.width < 900;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search by file name...',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
           ),
-        );
-      },
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: TextButton.icon(
+              onPressed: _toggleSortOrder,
+              icon: Icon(
+                _isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 16,
+              ),
+              label: const Text("Sort by Created At"),
+            ),
+          ),
+        ),
+        Expanded(
+          child:
+              _filteredAudioFiles.isEmpty
+                  ? Center(child: Text("No audio files found."))
+                  : ListView.builder(
+                    itemCount: _filteredAudioFiles.length,
+                    itemBuilder: (context, index) {
+                      final audio = _filteredAudioFiles[index];
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AudioInfo(audioFile: audio),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            bottom: isMobile ? 10.0 : 20.0,
+                          ),
+                          child: Container(
+                            padding: EdgeInsets.all(isMobile ? 12 : 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.audio_file,
+                                  size: isMobile ? 30 : 40,
+                                  color: Colors.grey[700],
+                                ),
+                                SizedBox(width: isMobile ? 12 : 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        audio.fileName,
+                                        style: TextStyle(
+                                          fontSize: isMobile ? 14 : 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      SizedBox(height: isMobile ? 4 : 8),
+                                      Text(
+                                        audio.transcription.isNotEmpty
+                                            ? audio.transcription
+                                            : "No transcription available",
+                                        style: TextStyle(
+                                          fontSize: isMobile ? 12 : 14,
+                                          color: Colors.grey[700],
+                                        ),
+                                        maxLines: isMobile ? 2 : 3,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (!isMobile) ...[
+                                  SizedBox(width: isTablet ? 8 : 16),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        "Received: ${DateFormat('dd/MM/yyyy hh:mm:ss a').format(audio.receiveddAt.toLocal())}",
+                                        style: TextStyle(
+                                          fontSize: isTablet ? 10 : 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      SizedBox(height: isTablet ? 2 : 4),
+                                      Text(
+                                        "Converted: ${DateFormat('dd/MM/yyyy hh:mm:ss a').format(audio.convertedAt.toLocal())}",
+                                        style: TextStyle(
+                                          fontSize: isTablet ? 10 : 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+        ),
+      ],
     );
   }
 }
